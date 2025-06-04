@@ -66,30 +66,44 @@ class SeqC extends ExprC {
 /* ============================================================
 Defining Bindings, Environments, and the top level QTUM environment
 ============================================================= */
-abstract class Value {}
+abstract class Value {
+  String serialize(); // 'pretty print' for each value
+}
 
 class NumV extends Value {
   final double n;
 
   NumV(this.n);
+
+  @override
+  String serialize() => n.toString();
 }
 
 class StrV extends Value {
   final String s;
 
   StrV(this.s);
+
+  @override
+  String serialize() => '"$s"'; // Adding quotes manually
 }
 
 class BoolV extends Value {
   final bool b;
 
   BoolV(this.b);
+
+  @override
+  String serialize() => b ? "true" : "false";
 }
 
 class PrimV extends Value {
   final String s;
 
   PrimV(this.s);
+
+  @override
+  String serialize() => "#<primop>";
 }
 
 class CloV extends Value {
@@ -98,6 +112,9 @@ class CloV extends Value {
   final Env env;
 
   CloV(this.params, this.body, this.env);
+
+  @override
+  String serialize() => "#<procedure>";
 }
 
 /* ============================================================
@@ -179,8 +196,8 @@ Value interp(ExprC e, Env env) {
       Env newEnv = extend(lambValue.params, argValues, env);
       return interp(lambValue.body, newEnv);
     } else if (lambValue is PrimV) {
-      // TODO: implement a handle-PrimV function and replace the placeholder with a call to it
-      return NumV(0);
+      // TODO: check passing correct values to handlePrimV
+      return handlePrimV(lambValue, argValues);
     }
     throw Exception('Not a valid function application: $lambValue');
   } else if (e is SeqC) {
