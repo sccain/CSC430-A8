@@ -1,17 +1,17 @@
-/*
+import 'dart:io';
+
+/* ============================================================
 CSC 430: Assignment 8
 
 Using Dart to implement the QTUM language
-*/
+============================================================= */
 
-
-
-/*
+/* ============================================================
 Defining an ExprC as an abstract class
 
 All the subtypes of ExprC's will extend this abstract class instead
 of being a part of a union type
-*/
+============================================================= */
 abstract class ExprC {}
 
 class NumC extends ExprC {
@@ -63,8 +63,6 @@ class SeqC extends ExprC {
   SeqC(this.lst);
 }
 
-
-
 /* ============================================================
 Defining Bindings, Environments, and the top level QTUM environment
 ============================================================= */
@@ -85,7 +83,7 @@ class StrV extends Value {
 class BoolV extends Value {
   final bool b;
 
-  BoolV(this.b); 
+  BoolV(this.b);
 }
 
 class PrimV extends Value {
@@ -101,7 +99,6 @@ class CloV extends Value {
 
   CloV(this.params, this.body, this.env);
 }
-
 
 /* ============================================================
 Defining Bindings, Environments, and the top level QTUM environment
@@ -134,9 +131,8 @@ final topEnv = Env([
   Binding('println', PrimV('println')),
   Binding('read-num', PrimV('read-num')),
   Binding('read-str', PrimV('read-str')),
-  Binding('++', PrimV('++'))]);
-
-
+  Binding('++', PrimV('++')),
+]);
 
 /* ============================================================
 Defining the interp function which will take as inputs an ExprC and
@@ -148,50 +144,51 @@ This section includes helper functions for interp including:
   - handle-PrimV
 ============================================================= */
 
-  Value interp(ExprC e, Env env) {
-    if (e is NumC) {
-      return NumV(e.n);
+Value interp(ExprC e, Env env) {
+  if (e is NumC) {
+    return NumV(e.n);
+  } else if (e is StrC) {
+    return StrV(e.s);
+  } else if (e is IdC) {
+    return lookup(e.id, env);
+  } else if (e is IfC) {
+    final Value testValue = interp(e.test, env);
+    if (testValue is BoolV) {
+      if (testValue.b) {
+        return interp(e.thenExpr, env);
+      } else {
+        return interp(e.elseExpr, env);
+      }
+    }
+    throw Exception(
+      'The first clause of an if statement must evaluate to a boolean',
+    );
+  } else if (e is LamC) {
+    return CloV(e.params, e.body, env);
+  } else if (e is AppC) {
+    // defining the Value corresponding to interpreting the first clause of an AppC
+    final Value lambValue = interp(e.lamb, env);
+    // defining a list of Values corresponding to interpreting the list of ExprC's
+    // that are the AppC's parameters
+    final List<Value> argValues = e.params
+        .map((ExprC e) => interp(e, env))
+        .toList();
 
-    } else if (e is StrC) {
-      return StrV(e.s);
-
-    } else if (e is IdC) {
-      return lookup(e.id, env);
-
-    } else if (e is IfC) {
-      final Value testValue = interp(e.test, env);
-      if (testValue is BoolV) {
-        if (testValue.b) {
-          return interp(e.thenExpr, env);
-        } else {
-          return interp(e.elseExpr, env);
-        }
-      } throw Exception('The first clause of an if statement must evaluate to a boolean');
-
-    } else if (e is LamC) {
-      return CloV(e.params, e.body, env);
-
-    } else if (e is AppC) {
-      // defining the Value corresponding to interpreting the first clause of an AppC
-      final Value lambValue = interp(e.lamb, env);
-      // defining a list of Values corresponding to interpreting the list of ExprC's
-      // that are the AppC's parameters
-      final List<Value> argValues = e.params.map((ExprC e) => interp(e, env)).toList();
-
-      if (lambValue is CloV) {
-        // extending the environment with new identifier bindings
-        Env newEnv = extend(lambValue.params, argValues, env);
-        return interp(lambValue.body, newEnv);
-      } else if (lambValue is PrimV) {
-        // TODO: implement a handle-PrimV function and replace the placeholder with a call to it
-        return NumV(0);
-      } throw Exception('Not a valid function application: $lambValue');
-
-    } else if (e is SeqC) {
-      final List<Value> valSeq = e.lst.map((ExprC e) => interp(e, env)).toList();
-      return valSeq.last;
-    } throw Exception('Not a valid expression, cannot evaluate: $e');
+    if (lambValue is CloV) {
+      // extending the environment with new identifier bindings
+      Env newEnv = extend(lambValue.params, argValues, env);
+      return interp(lambValue.body, newEnv);
+    } else if (lambValue is PrimV) {
+      // TODO: implement a handle-PrimV function and replace the placeholder with a call to it
+      return NumV(0);
+    }
+    throw Exception('Not a valid function application: $lambValue');
+  } else if (e is SeqC) {
+    final List<Value> valSeq = e.lst.map((ExprC e) => interp(e, env)).toList();
+    return valSeq.last;
   }
+  throw Exception('Not a valid expression, cannot evaluate: $e');
+}
 
 // lookup: a helper function that searches for a "symbol" (string
 // in this case) in the environment and returns the corresponiding
@@ -199,11 +196,11 @@ This section includes helper functions for interp including:
 
 Value lookup(String id, Env env) {
   // NOTE: different from Racket due to the existence of nice for loops
-  for(var binding in env.bindings) {
+  for (var binding in env.bindings) {
     if (binding.id == id) {
       return binding.val;
     }
-  } 
+  }
   throw Exception('Unbound identifier: $id');
 }
 
@@ -216,7 +213,8 @@ Env extend(List<String> nameList, List<Value> valList, Env env) {
       env.bindings.add(Binding(nameList[i], valList[i]));
       return env;
     }
-  } throw Exception('Number of identifiers and values are not the same???');
+  }
+  throw Exception('Number of identifiers and values are not the same???');
 }
 
 // handlePrimV: a helper function that takes in a string and a list of values
@@ -226,52 +224,139 @@ Value handlePrimV(String op, List<Value> args) {
     if (args.length == 2 && (args[0] is NumV) && (args[1] is NumV)) {
       // can cast since we checked above
       NumV n1 = (args[0] as NumV);
-      NumV n2 = (args[1] as NumV); 
+      NumV n2 = (args[1] as NumV);
       return NumV(n1.n + n2.n);
     }
+    throw Exception('Improper formatting for primop: +');
   } else if (op == '-') {
     if (args.length == 2 && (args[0] is NumV) && (args[1] is NumV)) {
       // can cast since we checked above
       NumV n1 = (args[0] as NumV);
-      NumV n2 = (args[1] as NumV); 
+      NumV n2 = (args[1] as NumV);
       return NumV(n1.n - n2.n);
     }
+    throw Exception('Improper formatting for primop: -');
   } else if (op == '*') {
     if (args.length == 2 && (args[0] is NumV) && (args[1] is NumV)) {
       // can cast since we checked above
       NumV n1 = (args[0] as NumV);
-      NumV n2 = (args[1] as NumV); 
+      NumV n2 = (args[1] as NumV);
       return NumV(n1.n * n2.n);
     }
+    throw Exception('Improper formatting for primop: *');
   } else if (op == '/') {
-    if (args.length == 2 && (args[0] is NumV) && (args[1] is NumV) && (args[1] != 0)) {
+    if (args.length == 2 &&
+        (args[0] is NumV) &&
+        (args[1] is NumV) &&
+        (args[1] != 0)) {
       // can cast since we checked above
       NumV n1 = (args[0] as NumV);
-      NumV n2 = (args[1] as NumV); 
+      NumV n2 = (args[1] as NumV);
       return NumV(n1.n / n2.n);
     }
+    throw Exception('Improper formatting for primop: /');
   } else if (op == '<=') {
     if (args.length == 2 && (args[0] is NumV) && (args[1] is NumV)) {
       // can cast since we checked above
       NumV n1 = (args[0] as NumV);
-      NumV n2 = (args[1] as NumV); 
+      NumV n2 = (args[1] as NumV);
       return BoolV(n1.n <= n2.n);
     }
+    throw Exception('Improper formatting for primop: <=');
   } else if (op == 'substring') {
-    if (args.length == 3 
-        && (args[0] is StrV) && (args[1] is NumV) && (args[2] is NumV)) {
+    if (args.length == 3 &&
+        (args[0] is StrV) &&
+        (args[1] is NumV) &&
+        (args[2] is NumV)) {
       StrV s1 = (args[0] as StrV);
       NumV n1 = (args[1] as NumV);
       NumV n2 = (args[2] as NumV);
 
-      //TODO: include checks on indicies being in bounds and that they are ints
+      if (!((n1.n is int) && (n2.n is int))) {
+        throw Exception('Indicies must be natural numbers');
+      } else if ((n1.n < 0) ||
+          (n2.n < 0) ||
+          (n2.n < n1.n) ||
+          (n2.n >= s1.s.length)) {
+        throw Exception('Indicies must be within bounds.');
+      }
 
-      return StrV(s1.s.substring(n1.n, n2.n));
+      int idx1 = (n1.n as int);
+      int idx2 = (n2.n as int);
+
+      return StrV(s1.s.substring(idx1, idx2));
     }
-  } throw Exception('Not a valid primitive operator: $op');
+    throw Exception('Improper formatting for primop: substring');
+  } else if (op == 'strlen') {
+    if (args.length == 1 && (args[0] is StrV)) {
+      StrV str1 = (args[0] as StrV);
+      return NumV(str1.s.length as double);
+    }
+    throw Exception('Improper formatting for primop: strlen');
+  } else if (op == 'equal?') {
+    if (args.length == 2) {
+      return BoolV(args[0] == args[1]);
+    }
+  } else if (op == 'error') {
+    if (args.length == 1 && (args[0] is StrV)) {
+      StrV container = (args[0] as StrV);
+      String message = container.s;
+      throw Exception('User error raised: $message');
+    }
+    throw Exception('Improper formatting for primop: error');
+  } else if (op == 'println') {
+    if (args.length == 1 && (args[0] is StrV)) {
+      StrV container = (args[0] as StrV);
+      String message = container.s;
+      print('$message');
+      return BoolV(true);
+    }
+    throw Exception('Improper formatting for primop: println');
+  } else if (op == 'read-str') {
+    if (args.isEmpty) {
+      return StrV(stdin.readLineSync() as String);
+    }
+    throw Exception('Improper formatting for primop: read-str');
+  } else if (op == 'read-num') {
+    if (args.isEmpty) {
+      if (null != (int.tryParse(stdin.readLineSync() as String))) {
+        int input = (int.tryParse(stdin.readLineSync() as String) as int);
+        return NumV(input as double);
+      }
+      throw Exception('Input to read-num must be a number');
+    }
+    throw Exception('Improper formatting for primop: read-num');
+  } else if (op == '++') {
+    return plusPlus(args, "");
+  }
+  throw Exception('Not a valid primitive operator: $op');
 }
 
+// strJoinVals: a helper function that joins together the string
+// versions of a list of values
+StrV plusPlus(List<Value> input, String out) {
+  if (input.isEmpty) {
+    return StrV(out);
+  }
 
+  var head = input.first;
+  var tail = input.sublist(1);
+
+  String toAppend;
+  if (head is NumV) {
+    toAppend = head.n.toString();
+  } else if (head is StrV) {
+    toAppend = head.s;
+  } else if (head is BoolV) {
+    toAppend = head.b.toString();
+  } else if (head is PrimV) {
+    toAppend = head.s;
+  } else {
+    toAppend = head.toString();
+  }
+
+  return plusPlus(tail, out + toAppend);
+}
 
 void main() {
   print('Testing dart and creating base file.');
