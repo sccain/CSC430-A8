@@ -290,7 +290,10 @@ Value handlePrimV(PrimV prim, List<Value> args) {
       NumV n1 = (args[1] as NumV);
       NumV n2 = (args[2] as NumV);
 
-      if (!((n1.n is int) && (n2.n is int))) {
+      if (!((n1.n % 1 == 0.0) &&
+          (n2.n % 1 == 0.0) &&
+          (n1.n > 0) &&
+          (n2.n > 0))) {
         throw Exception('Indicies must be natural numbers');
       } else if ((n1.n < 0) ||
           (n2.n < 0) ||
@@ -299,8 +302,8 @@ Value handlePrimV(PrimV prim, List<Value> args) {
         throw Exception('Indicies must be within bounds.');
       }
 
-      int idx1 = (n1.n as int);
-      int idx2 = (n2.n as int);
+      int idx1 = (n1.n.toInt());
+      int idx2 = (n2.n.toInt());
 
       return StrV(s1.s.substring(idx1, idx2));
     }
