@@ -86,7 +86,8 @@ class StrV extends Value {
   StrV(this.s);
 
   @override
-  String serialize() => '"$s"'; // Adding quotes manually
+  String serialize() => "$s"; // Adding quotes manually
+  // ^ Removed the little quotes cause I'm not sure we need them? - ns
 }
 
 class BoolV extends Value {
@@ -376,6 +377,7 @@ StrV plusPlus(List<Value> input, String out) {
 }
 
 void main() {
+  // top interp ?
   print('Testing dart and creating base file.');
 
   test('interp NumC', () {
