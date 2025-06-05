@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:test/test.dart';
 
 /* ============================================================
 CSC 430: Assignment 8
@@ -187,16 +188,14 @@ Value interp(ExprC e, Env env) {
     final Value lambValue = interp(e.lamb, env);
     // defining a list of Values corresponding to interpreting the list of ExprC's
     // that are the AppC's parameters
-    final List<Value> argValues = e.params
-        .map((ExprC e) => interp(e, env))
-        .toList();
+    final List<Value> argValues =
+        e.params.map((ExprC e) => interp(e, env)).toList();
 
     if (lambValue is CloV) {
       // extending the environment with new identifier bindings
       Env newEnv = extend(lambValue.params, argValues, env);
       return interp(lambValue.body, newEnv);
     } else if (lambValue is PrimV) {
-      // TODO: check passing correct values to handlePrimV
       return handlePrimV(lambValue, argValues);
     }
     throw Exception('Not a valid function application: $lambValue');
@@ -236,7 +235,8 @@ Env extend(List<String> nameList, List<Value> valList, Env env) {
 
 // handlePrimV: a helper function that takes in a string and a list of values
 // and returns the proper result depending on the symbol
-Value handlePrimV(String op, List<Value> args) {
+Value handlePrimV(PrimV prim, List<Value> args) {
+  final op = prim.s;
   if (op == '+') {
     if (args.length == 2 && (args[0] is NumV) && (args[1] is NumV)) {
       // can cast since we checked above
@@ -377,4 +377,18 @@ StrV plusPlus(List<Value> input, String out) {
 
 void main() {
   print('Testing dart and creating base file.');
+
+  test('interp NumC', () {
+    final numExpr = NumC(42.0);
+    expect(interp(numExpr, topEnv).serialize(), "42.0");
+  });
+
+  test('interp factorial function', () {
+    final factorial = LamC(['x', 'rec'], 
+    IfC ( (AppC (IdC ('equal?'), [IdC('x'), NumC(0.0)])),
+        NumC(1.0),
+        AppC(IdC('rec'), [AppC(IdC('-'), [IdC('x'), NumC(1.0)]), IdC('rec')])
+    ));
+    expect(interp(AppC(factorial, [NumC(5.0), factorial]), topEnv).serialize(), "120.0");
+  });
 }
